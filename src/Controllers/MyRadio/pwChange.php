@@ -69,7 +69,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_REQUEST['myradio_pwChange-p
     //Logged in user change?
     if (isset($data['pwold'])) {
         //Is the old password correct?
-        if (CoreUtils::testCredentials(User::getInstance()->getEmail(), $data['pwold']) === false) {
+        if (CoreUtils::testCredentials(MyRadio_User::getInstance()->getEmail(),
+                $data['pwold']) === false) {
             $form->render(['messages' => 'Your old password was invalid.']);
             exit;
         }
@@ -89,13 +90,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_REQUEST['myradio_pwChange-p
     unset($data);
     
     //Reset the User's authenticator preferences - they may be locking them out
-    $db->query('UPDATE member SET auth_provider=NULL WHERE memberid=$1',
-            [$user->getID()]);
+    $user->setAuthProvider(null);
     
     //Set the token as used
     if (isset($token)) {
         $db->query('UPDATE myury.password_reset_token SET used=NOW()'
                 . ' WHERE token=$1', [$token['token']]);
+    }
+    
+    //If the user was locked out for a password change, unlock them
+    if (isset($_SESSION['auth_use_locked']) &&
+            $_SESSION['auth_use_locked'] === 'chooseAuth') {
+        unset($_SESSION['auth_use_locked']);
     }
 
     header('Location: '.CoreUtils::makeURL('MyRadio', 'login'));
